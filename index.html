@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,19 +21,44 @@
             text-align: center;
         }
 
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .logo {
+            width: 400px;
+            max-width: 80vw;
+            margin-bottom: 20px;
+        }
+
         h1 {
             margin: 0;
             line-height: 2;
+        }
+
+        iframe {
+            margin-top: 20px;
+            max-width: 90vw;
         }
     </style>
 </head>
 
 <body>
-    <div>
-        <h1>我喜欢老干妈</h1>
+    <div class="container">
+
+        <img
+            src="/laoganma.png"
+            alt="Lao Gan Ma logo"
+            class="logo"
+        >
+
+        <h1>我很喜欢老干妈</h1>
         <h1>非常好的chili sauce</h1>
         <h1>Embrace中国文化</h1>
         <h1>不是广告 老干妈和我没有关系</h1>
+
         <iframe
             width="560"
             height="315"
@@ -42,6 +68,7 @@
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen
         ></iframe>
+
         <iframe
             width="560"
             height="315"
@@ -51,6 +78,7 @@
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen
         ></iframe>
+
     </div>
 </body>
 </html>
