@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copy Text</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: #111318;
+      color: #f5f5f5;
+    }
+
+    main {
+      width: min(90%, 520px);
+      padding: 28px;
+      box-sizing: border-box;
+      text-align: center;
+      background: #1c1f27;
+      border: 1px solid #343844;
+      border-radius: 16px;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+
+    p {
+      color: #b8bdc9;
+      line-height: 1.5;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 12px 22px;
+      border: 0;
+      border-radius: 9px;
+      background: #4f7cff;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #3b67e8;
+    }
+
+    button:focus-visible {
+      outline: 3px solid #a9bcff;
+      outline-offset: 3px;
+    }
+
+    #status {
+      min-height: 1.5em;
+      margin-bottom: 0;
+      color: #a8f0bf;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Copy Text</h1>
+    <p>Click the button to copy the saved text to your clipboard.</p>
+    <button id="copyButton" type="button">Copy text</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script>
+    const savedText = `credits to @ for the sound, the title, the video idea, the edit style, the account password, the account username, the cover, the cell plan, the location, the phone, the description, the dms i send, my snap username, my phone number, my email, my address, my wifi ssid, access points, router brand, wpa security, where i got my burger, ios version, my phone brand, my phone price, my modem, my life, my account, my name, my social security number, my passport number, my credit card number, my credit card expiration date, my credit card CVV, building my school, my friends name, my friends social security number, my friends passport number, my bank account balance, my bank, my bank account routing number, my bank account number, my license plate number, my vin, my ebay history, my animal style fries, my car model, the airline i fly, my screen time, my search history at 3am, my recommended videos, my for you page, my drafts, my notes app, my reminders i ignore, my alarm sounds, my ringtone, my wallpaper, my lockscreen widgets, my battery health, my charging habits, my cracked screen protector, my fingerprints on the camera lens, my icloud storage, my failed backups, my airdrop name, my bluetooth devices, my hotspot name, my spam emails, my unread notifications, my deleted photos, my hidden photos album, my camera roll from 2019, my old usernames, my roblox account, my minecraft world, my google docs, my school assignments i never turned in, my group chats, my archived chats, my blocked list, my alt accounts, my burner accounts, my playlist, my liked songs, my skipped songs, my embarrassing screenshots, my saved tiktoks, my watch history, my keyboard autocorrect, my typos, my copy paste clipboard, my drafts that never posted, my failed edits, my overused emojis, my screen recordings, my lag spikes, my wifi drops at the worst time, my data usage, my app crashes, my storage almost full warning, my system data taking 80gb, my updates i never install, my bugs, my glitches, my laggy animations, my dropped frames, my ping spikes, my speed test results, my upload speed, my download speed, my jitter, my packet loss, my signal bars, my 5g icon that disappears, my lte fallback, my dead zones, my random disconnects, my reconnect attempts, my frustration, my sanity, my patience, my last braincell, the brand of energy drink i drink and yeah i think that’s it #fyp #techtok #iphone #speedtest #internet`;
+
+    const button = document.getElementById("copyButton");
+    const status = document.getElementById("status");
+
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(savedText);
+        status.textContent = "Copied to clipboard!";
+      } catch (error) {
+        status.textContent = "Copy failed. Open this page on HTTPS and allow clipboard access.";
+      }
+    });
+  </script>
+</body>
+</html>
