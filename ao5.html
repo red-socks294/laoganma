@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rubik's Cube Ao5 Calculator</title>
+  <style>
+    :root { color-scheme: light dark; --accent: #4f8cff; --panel: rgba(127,127,127,.10); --border: rgba(127,127,127,.35); }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 16px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(680px, 100%); margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 5vw, 2.2rem); }
+    .hint { margin: 0 0 22px; opacity: .75; line-height: 1.5; }
+    .solves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .solve { display: block; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+    .solve:last-child { grid-column: 1 / -1; }
+    label { display: block; font-weight: 650; margin-bottom: 8px; }
+    .input-wrap { display: flex; align-items: center; gap: 8px; }
+    input { min-width: 0; width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 9px; background: transparent; color: inherit; font: inherit; }
+    .seconds { opacity: .7; }
+    .result { margin-top: 18px; padding: 20px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+    .result-label { font-size: .95rem; opacity: .75; }
+    #ao5 { font-size: clamp(2rem, 8vw, 3rem); font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    #detail { margin-top: 6px; opacity: .75; line-height: 1.45; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    button { border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; background: var(--panel); color: inherit; font: inherit; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .footnote { margin-top: 18px; font-size: .9rem; opacity: .72; line-height: 1.5; }
+    @media (max-width: 420px) { .solves { grid-template-columns: 1fr; } .solve:last-child { grid-column: auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Rubik's Cube Ao5 Calculator</h1>
+    <p class="hint">Type digits only: the last two digits become hundredths (1499 → 14.99; 14022 → 1:40.22). Type D for DNF. Maximum time is 1:00:00.00.</p>
+
+    <section class="solves" aria-label="Solve times">
+      <div class="solve"><label for="solve1">Solve 1</label><div class="input-wrap"><input id="solve1" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 12.50" aria-label="Solve 1 time in seconds"><span class="seconds">sec</span></div></div>
+      <div class="solve"><label for="solve2">Solve 2</label><div class="input-wrap"><input id="solve2" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 11.82" aria-label="Solve 2 time in seconds"><span class="seconds">sec</span></div></div>
+      <div class="solve"><label for="solve3">Solve 3</label><div class="input-wrap"><input id="solve3" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 13.06" aria-label="Solve 3 time in seconds"><span class="seconds">sec</span></div></div>
+      <div class="solve"><label for="solve4">Solve 4</label><div class="input-wrap"><input id="solve4" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 12.21" aria-label="Solve 4 time in seconds"><span class="seconds">sec</span></div></div>
+      <div class="solve"><label for="solve5">Solve 5</label><div class="input-wrap"><input id="solve5" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 14.30 or DNF" aria-label="Solve 5 time in seconds, or DNF"><span class="seconds">sec</span></div></div>
+    </section>
+
+    <section class="result" aria-live="polite">
+      <div class="result-label">Average of 5 (Ao5)</div>
+      <div id="ao5">Enter 5 solves</div>
+      <div id="detail">The fastest and slowest results are removed, then the middle three are averaged.</div>
+    </section>
+    <div class="actions">
+      <button class="primary" id="clear">Clear times</button>
+      <button id="copyLink">Copy URL with times</button>
+    </div>
+    <p class="footnote">Type only digits or D. The last two digits are hundredths: <strong>1499</strong> becomes <strong>14.99</strong>, and <strong>14022</strong> becomes <strong>1:40.22</strong>. Type <strong>D</strong> for DNF. Times are capped at <strong>1:00:00.00</strong>. Under standard WCA Ao5 rules, one DNF is removed as the slowest result if the other four solves are valid; two or more DNFs make the average DNF.</p>
+  </main>
+  <script>
+    (() => {
+      const inputs = Array.from({ length: 5 }, (_, i) => document.getElementById(`solve${i + 1}`));
+      const ao5 = document.getElementById('ao5');
+      const detail = document.getElementById('detail');
+      const params = new URLSearchParams(window.location.search);
+
+      // Keep raw digits separately so automatic punctuation never interferes with typing.
+      const digitBuffers = Array(5).fill('');
+      inputs.forEach((input, i) => {
+        const value = params.get(String(i + 1));
+        if (value !== null) {
+          if (/d/i.test(value)) input.value = 'DNF';
+          else {
+            digitBuffers[i] = clampDigitBuffer(value.replace(/\D/g, '').slice(0, 8));
+            input.value = formatDigits(digitBuffers[i]);
+          }
+        }
+      });
+
+      function clampDigitBuffer(rawDigits) {
+        const digits = String(rawDigits).replace(/\D/g, '').slice(0, 8);
+        return displayToSeconds(formatDigitsUnclamped(digits)) > 3600 ? '01000000' : digits;
+      }
+
+      function formatDigitsUnclamped(rawDigits) {
+        const digits = String(rawDigits).replace(/\D/g, '').slice(0, 8);
+        if (!digits) return '0.00';
+        let formatted;
+        if (digits.length <= 4) {
+          formatted = `${Number(digits.slice(0, -2) || '0')}.${digits.slice(-2).padStart(2, '0')}`;
+        } else if (digits.length <= 6) {
+          const padded = digits.padStart(5, '0');
+          formatted = `${Number(padded.slice(0, -4))}:${padded.slice(-4, -2)}.${padded.slice(-2)}`;
+        } else {
+          const padded = digits.padStart(7, '0');
+          formatted = `${Number(padded.slice(0, -6))}:${padded.slice(-6, -4)}:${padded.slice(-4, -2)}.${padded.slice(-2)}`;
+        }
+        return formatted;
+      }
+
+      function formatDigits(rawDigits) {
+        let digits = String(rawDigits).replace(/\D/g, '').slice(0, 8);
+        if (!digits) return '';
+        // The last two digits are hundredths. Add seconds, minutes, and hours
+        // from right to left as more digits are entered.
+        let formatted;
+        // Keep the display in seconds-only form for the first four digits.
+        // The minute separator appears only when digit five is entered.
+        if (digits.length < 5) {
+          const whole = digits.slice(0, -2) || '0';
+          const hundredths = digits.slice(-2).padStart(2, '0');
+          formatted = `${Number(whole)}.${hundredths}`;
+        } else if (digits.length <= 6) {
+          digits = digits.padStart(5, '0');
+          const minutes = digits.slice(0, -4);
+          const seconds = digits.slice(-4, -2);
+          const hundredths = digits.slice(-2);
+          formatted = `${Number(minutes)}:${seconds}.${hundredths}`;
+        } else {
+          digits = digits.padStart(7, '0');
+          const hours = digits.slice(0, -6);
+          const minutes = digits.slice(-6, -4);
+          const seconds = digits.slice(-4, -2);
+          const hundredths = digits.slice(-2);
+          formatted = `${Number(hours)}:${minutes}:${seconds}.${hundredths}`;
+        }
+        const secondsValue = displayToSeconds(formatted);
+        if (secondsValue > 3600) return '1:00:00.00';
+        return formatted;
+      }
+
+      function displayToSeconds(value) {
+        if (value.includes(':')) {
+          const parts = value.split(':');
+          if (parts.length === 3) return Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]);
+          return Number(parts[0]) * 60 + Number(parts[1]);
+        }
+        return Number(value);
+      }
+
+      function parseTime(raw) {
+        const value = raw.trim();
+        if (!value) return null;
+        if (/^dnf$/i.test(value)) return { dnf: true, value: Infinity, label: 'DNF' };
+        const number = displayToSeconds(value);
+        if (!Number.isFinite(number) || number < 0 || number > 3600) return { invalid: true };
+        return { dnf: false, value: number, label: formatTimeLabel(value) };
+      }
+
+      function formatTimeLabel(value) {
+        // Inputs are already normalized and limited to hundredths.
+        return value;
+      }
+
+      function format(seconds) {
+        return seconds.toFixed(2);
+      }
+
+      function updateUrl() {
+        const next = new URLSearchParams();
+        inputs.forEach((input, i) => {
+          if (input.value.trim() !== '') next.set(String(i + 1), /^dnf$/i.test(input.value.trim()) ? 'DNF' : digitBuffers[i]);
+        });
+        const query = next.toString();
+        const newUrl = window.location.pathname + (query ? `?${query}` : '') + window.location.hash;
+        // Replaces the current history entry: no new history entry per keystroke.
+        window.history.replaceState(null, '', newUrl);
+      }
+
+      function calculate() {
+        updateUrl();
+        const parsed = inputs.map(input => parseTime(input.value));
+        inputs.forEach((input, i) => {
+          input.setAttribute('aria-invalid', parsed[i]?.invalid ? 'true' : 'false');
+        });
+        if (parsed.some(item => item && item.invalid)) {
+          ao5.textContent = 'Check a time';
+          detail.textContent = 'Enter a non-negative time in seconds, or DNF.';
+          return;
+        }
+        if (parsed.some(item => item === null)) {
+          const count = parsed.filter(Boolean).length;
+          ao5.textContent = 'Enter 5 solves';
+          detail.textContent = `${count} of 5 solves entered. Fill in all five times to calculate the Ao5.`;
+          return;
+        }
+        const dnfs = parsed.filter(item => item.dnf).length;
+        if (dnfs >= 2) {
+          ao5.textContent = 'DNF';
+          detail.textContent = 'Two or more DNFs make the Ao5 a DNF.';
+          return;
+        }
+        const sorted = [...parsed].sort((a, b) => a.value - b.value);
+        const counted = sorted.slice(1, 4);
+        const average = counted.reduce((sum, item) => sum + item.value, 0) / 3;
+        ao5.textContent = format(average);
+        const removedFast = sorted[0].label;
+        const removedSlow = sorted[4].label;
+        detail.textContent = `Counted: ${counted.map(item => item.label).join(', ')} sec · Removed fastest: ${removedFast} · Removed slowest: ${removedSlow}`;
+      }
+
+      inputs.forEach((input, index) => {
+        input.addEventListener('keydown', event => {
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          if (/^[0-9]$/.test(event.key)) {
+            event.preventDefault();
+            if (/^dnf$/i.test(input.value)) return;
+            digitBuffers[index] = clampDigitBuffer((digitBuffers[index] + event.key).slice(0, 8));
+            input.value = formatDigits(digitBuffers[index]);
+            calculate();
+            return;
+          }
+          if (/^[dD]$/.test(event.key)) {
+            event.preventDefault();
+            digitBuffers[index] = '';
+            input.value = 'DNF';
+            calculate();
+            return;
+          }
+          if (event.key === 'Backspace' || event.key === 'Delete') {
+            event.preventDefault();
+            if (/^dnf$/i.test(input.value)) {
+              input.value = '';
+              digitBuffers[index] = '';
+            } else {
+              digitBuffers[index] = digitBuffers[index].slice(0, -1);
+              input.value = formatDigits(digitBuffers[index]);
+            }
+            calculate();
+            return;
+          }
+          if (['Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          if (event.key.length === 1) event.preventDefault();
+        });
+        input.addEventListener('paste', event => {
+          event.preventDefault();
+          const pasted = (event.clipboardData || window.clipboardData).getData('text');
+          if (/d/i.test(pasted)) {
+            digitBuffers[index] = '';
+            input.value = 'DNF';
+          } else {
+            digitBuffers[index] = clampDigitBuffer(pasted.replace(/\D/g, '').slice(0, 8));
+            input.value = formatDigits(digitBuffers[index]);
+          }
+          calculate();
+        });
+        input.addEventListener('input', () => {
+          // Covers mobile keyboards and autofill paths that do not emit keydown.
+          if (/d/i.test(input.value)) {
+            digitBuffers[index] = '';
+            input.value = 'DNF';
+          } else {
+            digitBuffers[index] = clampDigitBuffer(input.value.replace(/\D/g, '').slice(0, 8));
+            input.value = formatDigits(digitBuffers[index]);
+          }
+          calculate();
+        });
+      });
+      document.getElementById('clear').addEventListener('click', () => {
+        inputs.forEach((input, i) => { input.value = ''; digitBuffers[i] = ''; });
+        calculate();
+        inputs[0].focus();
+      });
+      document.getElementById('copyLink').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          document.getElementById('copyLink').textContent = 'URL copied!';
+        } catch {
+          detail.textContent = 'Copy was blocked by Safari. Select and copy the URL from the address bar.';
+        }
+      });
+      calculate();
+    })();
+  </script>
+</body>
+</html>
