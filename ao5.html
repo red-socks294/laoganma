@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ao5 Calculator</title>
+  <title>Rubik's Cube Ao5 Calculator</title>
   <style>
     :root { color-scheme: light dark; --accent: #4f8cff; --panel: rgba(127,127,127,.10); --border: rgba(127,127,127,.35); }
     * { box-sizing: border-box; }
@@ -22,6 +22,12 @@
     .result-label { font-size: .95rem; opacity: .75; }
     #ao5 { font-size: clamp(2rem, 8vw, 3rem); font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
     #detail { margin-top: 6px; opacity: .75; line-height: 1.45; }
+    .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .extra { padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); min-width: 0; }
+    .extra-value { font-size: clamp(1.25rem, 5vw, 1.7rem); font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; margin-top: 6px; }
+    .extra-note { font-size: .88rem; opacity: .72; margin-top: 5px; line-height: 1.4; }
+    #goalStatus { margin-top: 6px; line-height: 1.4; opacity: .8; }
+    @media (max-width: 420px) { .extras { grid-template-columns: 1fr; } }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
     button { border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; background: var(--panel); color: inherit; font: inherit; cursor: pointer; }
     button.primary { background: var(--accent); border-color: var(--accent); color: white; }
@@ -31,7 +37,7 @@
 </head>
 <body>
   <main>
-    <h1>Ao5 Calculator</h1>
+    <h1>Rubik's Cube Ao5 Calculator</h1>
     <p class="hint">Type digits only: the last two digits become hundredths (1499 → 14.99; 14022 → 1:40.22). Type D for DNF. Maximum time is 1:00:00.00.</p>
 
     <section class="solves" aria-label="Solve times">
@@ -47,6 +53,25 @@
       <div id="ao5">Enter 5 solves</div>
       <div id="detail">The fastest and slowest results are removed, then the middle three are averaged.</div>
     </section>
+
+    <section class="extras" aria-label="Ao5 projections and goal">
+      <div class="extra" aria-live="polite">
+        <div class="result-label">Best possible Ao5</div>
+        <div class="extra-value" id="bestPossible">Enter 4 solves</div>
+        <div class="extra-note" id="bestNote">Shows the best outcome possible with one solve remaining.</div>
+      </div>
+      <div class="extra" aria-live="polite">
+        <div class="result-label">Worst possible Ao5</div>
+        <div class="extra-value" id="worstPossible">Enter 4 solves</div>
+        <div class="extra-note" id="worstNote">Shows the worst outcome possible with one solve remaining.</div>
+      </div>
+      <div class="extra">
+        <label for="goalTime">Ao5 goal time</label>
+        <input id="goalTime" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. 20.00" aria-label="Ao5 goal time">
+        <div id="goalStatus">Set a target time to see whether you can reach it.</div>
+        <div class="extra-note" id="fifthSolveNeeded" aria-live="polite"></div>
+      </div>
+    </section>
     <div class="actions">
       <button class="primary" id="clear">Clear times</button>
       <button id="copyLink">Copy URL with times</button>
@@ -58,6 +83,14 @@
       const inputs = Array.from({ length: 5 }, (_, i) => document.getElementById(`solve${i + 1}`));
       const ao5 = document.getElementById('ao5');
       const detail = document.getElementById('detail');
+      const bestPossible = document.getElementById('bestPossible');
+      const worstPossible = document.getElementById('worstPossible');
+      const bestNote = document.getElementById('bestNote');
+      const worstNote = document.getElementById('worstNote');
+      const goalInput = document.getElementById('goalTime');
+      const goalStatus = document.getElementById('goalStatus');
+      const fifthSolveNeeded = document.getElementById('fifthSolveNeeded');
+      let goalDigits = '';
       const params = new URLSearchParams(window.location.search);
 
       // Keep raw digits separately so automatic punctuation never interferes with typing.
@@ -72,6 +105,14 @@
           }
         }
       });
+      const savedGoal = params.get('goal');
+      if (savedGoal !== null) {
+        if (/d/i.test(savedGoal)) goalInput.value = 'DNF';
+        else {
+          goalDigits = clampDigitBuffer(savedGoal.replace(/\D/g, '').slice(0, 8));
+          goalInput.value = formatDigits(goalDigits);
+        }
+      }
 
       function clampDigitBuffer(rawDigits) {
         const digits = String(rawDigits).replace(/\D/g, '').slice(0, 8);
@@ -157,15 +198,118 @@
         inputs.forEach((input, i) => {
           if (input.value.trim() !== '') next.set(String(i + 1), /^dnf$/i.test(input.value.trim()) ? 'DNF' : digitBuffers[i]);
         });
+        if (goalInput.value.trim() !== '') next.set('goal', /^dnf$/i.test(goalInput.value.trim()) ? 'DNF' : goalDigits);
         const query = next.toString();
         const newUrl = window.location.pathname + (query ? `?${query}` : '') + window.location.hash;
         // Replaces the current history entry: no new history entry per keystroke.
         window.history.replaceState(null, '', newUrl);
       }
 
+      function averageForFive(items) {
+        if (items.filter(item => item.dnf).length >= 2) return { dnf: true };
+        const sorted = [...items].sort((a, b) => a.value - b.value);
+        const middle = sorted.slice(1, 4);
+        return { dnf: false, value: middle.reduce((sum, item) => sum + item.value, 0) / 3 };
+      }
+
+      function displaySeconds(seconds) {
+        if (!Number.isFinite(seconds)) return 'DNF';
+        if (seconds >= 60) {
+          const minutes = Math.floor(seconds / 60);
+          const remainder = (seconds - minutes * 60).toFixed(2).padStart(5, '0');
+          return `${minutes}:${remainder}`;
+        }
+        return seconds.toFixed(2);
+      }
+
+      function updateProjections(parsed) {
+        const entered = parsed.filter(Boolean);
+        if (entered.length !== 4 || parsed.filter(item => item === null).length !== 1) {
+          bestPossible.textContent = entered.length < 4 ? 'Enter 4 solves' : 'Complete or clear a solve';
+          worstPossible.textContent = entered.length < 4 ? 'Enter 4 solves' : 'Complete or clear a solve';
+          bestNote.textContent = 'Enter exactly four solves to see the possible range.';
+          worstNote.textContent = 'Enter exactly four solves to see the possible range.';
+          return;
+        }
+
+        const validValues = entered.filter(item => !item.dnf).map(item => item.value);
+        const candidates = [0, 3600, ...validValues];
+        // Ao5 changes linearly between existing solve times, so these boundaries
+        // are enough to find the best and worst finite averages.
+        const results = candidates.map(value => averageForFive([...entered, { dnf: false, value, label: displaySeconds(value) }]));
+        const finite = results.filter(result => !result.dnf).map(result => result.value);
+        const best = finite.length ? Math.min(...finite) : null;
+        let worst = finite.length ? Math.max(...finite) : null;
+        const worstCouldBeDnf = entered.filter(item => item.dnf).length >= 1;
+        bestPossible.textContent = best === null ? 'DNF' : displaySeconds(best);
+        worstPossible.textContent = worstCouldBeDnf ? 'DNF' : (worst === null ? 'DNF' : displaySeconds(worst));
+        bestNote.textContent = 'Best result you can achieve with your final solve.';
+        worstNote.textContent = worstCouldBeDnf
+          ? 'A DNF on the last solve would make the average DNF.'
+          : 'Assumes the final solve is within the 1-hour limit.';
+      }
+
+      function updateGoal(parsed) {
+        fifthSolveNeeded.textContent = '';
+        if (!goalInput.value.trim()) {
+          goalStatus.textContent = 'Set a target time to see whether you can reach it.';
+          return;
+        }
+        const goal = parseTime(goalInput.value);
+        if (!goal || goal.invalid || goal.dnf) {
+          goalStatus.textContent = 'Enter a numeric goal time.';
+          return;
+        }
+        const completed = parsed.every(item => item !== null);
+        if (completed) {
+          const result = averageForFive(parsed);
+          if (result.dnf) goalStatus.textContent = `Your Ao5 is DNF. Goal: ${displaySeconds(goal.value)}.`;
+          else if (result.value <= goal.value) goalStatus.textContent = `Goal achieved! Your Ao5 is ${displaySeconds(result.value)} (goal ${displaySeconds(goal.value)}).`;
+          else goalStatus.textContent = `${(result.value - goal.value).toFixed(2)} seconds over your goal of ${displaySeconds(goal.value)}.`;
+          return;
+        }
+        const count = parsed.filter(Boolean).length;
+        if (count === 4) {
+          const values = parsed.filter(Boolean);
+          const best = [0, 3600, ...values.filter(item => !item.dnf).map(item => item.value)]
+            .map(value => averageForFive([...values, { dnf: false, value, label: displaySeconds(value) }]))
+            .filter(result => !result.dnf)
+            .map(result => result.value);
+          const bestValue = best.length ? Math.min(...best) : Infinity;
+          if (bestValue > goal.value) {
+            goalStatus.textContent = 'This goal is no longer reachable with one solve remaining.';
+            fifthSolveNeeded.textContent = 'No fifth-solve time can reach this goal.';
+            return;
+          }
+
+          // Search in hundredths for the slowest fifth solve that still meets the goal.
+          let low = 0;
+          let high = 360000;
+          while (low < high) {
+            const mid = Math.ceil((low + high) / 2);
+            const candidate = mid / 100;
+            const result = averageForFive([...values, { dnf: false, value: candidate, label: displaySeconds(candidate) }]);
+            if (!result.dnf && result.value <= goal.value + 1e-9) low = mid;
+            else high = mid - 1;
+          }
+          const maxFifth = low / 100;
+          const maxResult = averageForFive([...values, { dnf: false, value: maxFifth, label: displaySeconds(maxFifth) }]);
+          if (maxFifth === 3600 && maxResult.value <= goal.value + 1e-9) {
+            fifthSolveNeeded.textContent = 'Any fifth solve up to 1:00:00.00 will meet your goal.';
+          } else {
+            fifthSolveNeeded.textContent = `Your fifth solve must be ${displaySeconds(maxFifth)} or faster.`;
+          }
+          goalStatus.textContent = `You can still reach ${displaySeconds(goal.value)} with your last solve.`;
+        } else {
+          goalStatus.textContent = `${count} of 5 solves entered. Goal: ${displaySeconds(goal.value)}.`;
+        }
+      }
+
       function calculate() {
         updateUrl();
         const parsed = inputs.map(input => parseTime(input.value));
+        updateProjections(parsed);
+        updateGoal(parsed);
         inputs.forEach((input, i) => {
           input.setAttribute('aria-invalid', parsed[i]?.invalid ? 'true' : 'false');
         });
@@ -252,8 +396,49 @@
           calculate();
         });
       });
+      goalInput.addEventListener('keydown', event => {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        if (/^[0-9]$/.test(event.key)) {
+          event.preventDefault();
+          if (/^dnf$/i.test(goalInput.value)) return;
+          goalDigits = clampDigitBuffer((goalDigits + event.key).slice(0, 8));
+          goalInput.value = formatDigits(goalDigits);
+          calculate();
+          return;
+        }
+        if (/^[dD]$/.test(event.key)) {
+          event.preventDefault();
+          goalDigits = '';
+          goalInput.value = 'DNF';
+          calculate();
+          return;
+        }
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+          event.preventDefault();
+          if (/^dnf$/i.test(goalInput.value)) { goalInput.value = ''; goalDigits = ''; }
+          else { goalDigits = goalDigits.slice(0, -1); goalInput.value = formatDigits(goalDigits); }
+          calculate();
+          return;
+        }
+        if (['Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        if (event.key.length === 1) event.preventDefault();
+      });
+      goalInput.addEventListener('paste', event => {
+        event.preventDefault();
+        const pasted = (event.clipboardData || window.clipboardData).getData('text');
+        if (/d/i.test(pasted)) { goalDigits = ''; goalInput.value = 'DNF'; }
+        else { goalDigits = clampDigitBuffer(pasted.replace(/\D/g, '').slice(0, 8)); goalInput.value = formatDigits(goalDigits); }
+        calculate();
+      });
+      goalInput.addEventListener('input', () => {
+        if (/d/i.test(goalInput.value)) { goalDigits = ''; goalInput.value = 'DNF'; }
+        else { goalDigits = clampDigitBuffer(goalInput.value.replace(/\D/g, '').slice(0, 8)); goalInput.value = formatDigits(goalDigits); }
+        calculate();
+      });
+
       document.getElementById('clear').addEventListener('click', () => {
         inputs.forEach((input, i) => { input.value = ''; digitBuffers[i] = ''; });
+        goalInput.value = ''; goalDigits = '';
         calculate();
         inputs[0].focus();
       });
